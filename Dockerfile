@@ -1,26 +1,16 @@
-FROM openjdk:17.0.1-jdk-oracle as build
+FROM ubuntu:latest AS build
 
-WORKDIR /workspace/app
+RUN apt-get update
+RUN apt-get install openjdk-17-jdk -y
+COPY . .
 
-COPY mvnw .
-COPY .mvn .mvn
-COPY pom.xml .
-COPY src src
+RUN apt-get install maven -y
+RUN mvn clean install -DskipTests
 
-RUN chmod -R 777 ./mvnw
+FROM openjdk:17-jdk-slim
 
-RUN ./mvnw install -DskipTests
+EXPOSE 8080
 
-RUN mkdir -p target/dependency && (cd target/dependency; jar -xf ../*.jar)
+COPY --from=build /target/*.jar app.jar
 
-FROM openjdk:17.0.1-jdk-oracle
-
-VOLUME /tmp
-
-ARG DEPENDENCY=/workspace/app/target/dependency
-
-COPY --from=build ${DEPENDENCY}/BOOT-INF/lib /app/lib
-COPY --from=build ${DEPENDENCY}/META-INF /app/META-INF
-COPY --from=build ${DEPENDENCY}/BOOT-INF/classes /app
-
-ENTRYPOINT ["java","-cp","app:app/lib/*","com.generation.myblog.MyblogApplication"]
+ENTRYPOINT [ "java", "-jar", "app.jar" ]
